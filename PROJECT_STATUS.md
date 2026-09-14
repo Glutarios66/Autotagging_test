@@ -1,36 +1,16 @@
-# Project status – v0.3
+# Project status – v0.4
 
-## Implemented
+Implemented:
+- veraPDF preflight on the original PDF
+- real OpenDataLoader tagging
+- targeted CIDSet font normalization using pikepdf/qpdf
+- veraPDF postflight on the normalized Tagged PDF
+- before/after validation comparison
+- final PDF emitted only after successful postflight validation
+- normalization report with affected fonts/pages
+- existing PyMuPDF/OpenDataLoader/OpenAI/HITL/experiment foundations retained
 
-- PyMuPDF extractor -> canonical DocumentIR
-- OpenDataLoader extractor -> canonical DocumentIR
-- OpenDataLoader semantic mapping
-- optional OpenAI structured-output semantic adapter
-- OpenDataLoader real Tagged-PDF writer
-- veraPDF PDF/UA-1 validator adapter
-- real `accessibility_full` recipe
-- downloadable `.pdf` / `.json` artifacts
-- explicit file extensions in filesystem artifacts
-- accessibility report
-- HITL review correction API foundation
-- experiment/metric API foundation
-- tests for DAG, registry, IR, PyMuPDF, semantic mapping, artifact extensions,
-  veraPDF-unavailable behavior and API baseline
-- GitHub Actions
-
-## Output of the real recipe
-
-- source_pdf.pdf
-- document_ir.json
-- semantic_ir.json
-- candidate_pdf.pdf
-- validation.json
-- final_pdf.pdf
-- report.json
-
-## Still intentionally not claimed
-
-A Tagged PDF is not automatically equivalent to a PDF/UA-conformant PDF.
-`validation.json`/`report.json` are the source of truth for machine validation.
-
-Human checkpoints still need review.
+The CIDSet repair is intentionally conservative. It removes inconsistent
+optional CIDSet entries from embedded CID font descriptors; it does not
+re-encode text or rebuild font programs. Any other remaining font or PDF/UA
+issue stays visible in validation.json/report.json.

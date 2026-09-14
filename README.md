@@ -1,58 +1,48 @@
-# PDF Remediation – real Tagged-PDF pipeline
+# PDF Remediation – Tagged-PDF + PDF/UA validation pipeline
 
-This project now contains two levels:
-
-1. a lightweight PyMuPDF research baseline;
-2. a real local accessibility pipeline using OpenDataLoader auto-tagging and veraPDF validation.
-
-## What `accessibility_full` does
+The real recipe now uses a before/after validation flow:
 
 ```text
 source.pdf
-  -> OpenDataLoader JSON extraction
-  -> canonical DocumentIR
-  -> semantic role mapping
-  -> OpenDataLoader auto-tagging
-  -> candidate_pdf.pdf (real Tagged PDF)
-  -> veraPDF PDF/UA-1 machine validation
-  -> final_pdf.pdf
+  -> veraPDF PRE-FLIGHT
+  -> OpenDataLoader extraction + semantic mapping
+  -> OpenDataLoader Tagged-PDF generation
+  -> CIDSet font normalization
+  -> veraPDF POST-FLIGHT
   -> report.json
+  -> final_pdf.pdf only if postflight passes
 ```
 
-OpenDataLoader's Tagged-PDF output is a real tagged PDF. It is **not automatically
-claimed to be PDF/UA compliant**. The separate veraPDF artifact records whether
-the machine-verifiable PDF/UA checks pass.
+## Why CIDSet normalization exists
 
-## Requirements
+Some source PDFs contain embedded CID fonts with an inconsistent `/CIDSet`.
+PDF/UA-1 checks the correctness of a CIDSet when one is present. The targeted
+normalizer removes the inconsistent optional CIDSet entry from CIDFontType0/
+CIDFontType2 font descriptors and leaves the embedded font program, ToUnicode,
+page content, tags and MCIDs untouched. veraPDF is always run again afterwards.
+
+This is intentionally narrow: it does not claim to repair arbitrary font
+embedding problems.
+
+## Install
+
+Requirements:
 
 - Python 3.12+
 - Java 11+ for OpenDataLoader
-- veraPDF CLI for PDF/UA validation
+- veraPDF CLI
 
-Check Java:
-
-```bash
-java -version
-```
-
-On macOS with Homebrew:
+macOS:
 
 ```bash
+brew install python@3.12
 brew install --cask temurin
-```
+brew install verapdf
 
-Install project with the real OpenDataLoader adapter:
-
-```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[dev,opendataloader]'
-```
-
-Initialize the database:
-
-```bash
 alembic upgrade head
 ```
 
@@ -62,59 +52,32 @@ Start:
 python -m uvicorn pdf_remediation.api.main:app --reload
 ```
 
-Open Swagger:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-## Generate a real tagged PDF
+Run a real remediation:
 
 ```bash
 curl -F 'file=@sample.pdf'   -F 'recipe_name=accessibility_full'   http://127.0.0.1:8000/jobs
 ```
 
-Then query:
+## Expected artifacts
 
-```bash
-curl http://127.0.0.1:8000/jobs/<JOB_ID>/artifacts
-```
-
-Expected artifacts:
+Always:
 
 ```text
 source_pdf.pdf
+preflight_validation.json
 document_ir.json
 semantic_ir.json
 candidate_pdf.pdf
+normalized_pdf.pdf
+normalization_report.json
 validation.json
-final_pdf.pdf
 report.json
 ```
 
-`candidate_pdf.pdf` and `final_pdf.pdf` are the real auto-tagged PDF output.
+Only when postflight veraPDF passes:
 
-## Optional AI structure recipe
-
-Set:
-
-```bash
-export PDFR_OPENAI_API_KEY='...'
+```text
+final_pdf.pdf
 ```
 
-Then `accessibility_ai` becomes available through the registered
-`semantic_analysis/openai` adapter. It uses the Responses API with a strict
-JSON-schema structure classification. The OpenDataLoader writer remains
-responsible for writing the actual PDF tags.
-
-## HITL / experiments
-
-The API also exposes review-correction and experiment metric endpoints. These are
-an application-layer foundation. For multi-process production deployment, move
-this state from the current in-memory service to the SQLAlchemy repository.
-
-## Important limitation
-
-veraPDF performs machine-verifiable conformance checks. Human accessibility
-review remains necessary for semantic correctness such as meaningful alt text,
-reading order quality and heading intent.
+`report.json` separates fixed, remaining and newly introduced rule codes.

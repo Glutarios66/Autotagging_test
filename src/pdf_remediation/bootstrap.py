@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from pdf_remediation.adapters import (
     AccessibilityReportGenerator,
+    CIDSetFontNormalizer,
     MockAccessibilityValidator,
     MockFinalizer,
     MockPDFExtractor,
@@ -31,6 +32,7 @@ from pdf_remediation.infrastructure import (
 from pdf_remediation.pipeline import AdapterRegistry, PipelineExecutor, RecipeRegistry, load_recipes
 from pdf_remediation.pipeline.components import (
     AnalyzeComponent,
+    NormalizeComponent,
     ExtractComponent,
     FinalizeComponent,
     RemediateComponent,
@@ -112,6 +114,13 @@ def build_container(settings: Settings | None = None) -> Container:
         "remediation",
         "opendataloader",
         RemediateComponent(OpenDataLoaderTagger()),
+    )
+
+    # Targeted PDF normalization
+    adapters.register(
+        "normalization",
+        "cidset",
+        NormalizeComponent(CIDSetFontNormalizer()),
     )
 
     # Validation/finalization/reporting

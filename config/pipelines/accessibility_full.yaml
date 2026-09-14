@@ -1,7 +1,14 @@
 name: accessibility_full
-description: Real OpenDataLoader extraction, structure analysis, Tagged PDF generation and veraPDF PDF/UA-1 validation.
-version: "1"
+description: Preflight, real tagging, targeted CIDSet normalization, postflight PDF/UA-1 validation and conditional finalization.
+version: "2"
 steps:
+  - id: preflight
+    type: validation
+    adapter: verapdf
+    config:
+      input: source_pdf
+      output: preflight_validation
+
   - id: extract
     type: extract
     adapter: opendataloader
@@ -16,17 +23,36 @@ steps:
     adapter: opendataloader
     needs: [analyze]
 
-  - id: validate
+  - id: normalize_fonts
+    type: normalization
+    adapter: cidset
+    needs: [remediate]
+    config:
+      input: candidate_pdf
+      output: normalized_pdf
+      report_output: normalization_report
+
+  - id: postflight
     type: validation
     adapter: verapdf
-    needs: [remediate]
-
-  - id: finalize
-    type: finalization
-    adapter: passthrough
-    needs: [validate]
+    needs: [preflight, normalize_fonts]
+    config:
+      input: normalized_pdf
+      output: validation
 
   - id: report
     type: report
     adapter: accessibility
-    needs: [validate]
+    needs: [postflight]
+    config:
+      validation: validation
+
+  - id: finalize
+    type: finalization
+    adapter: passthrough
+    needs: [report]
+    config:
+      input: normalized_pdf
+      validation: validation
+      output: final_pdf
+      require_valid: true

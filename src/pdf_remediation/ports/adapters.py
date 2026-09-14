@@ -78,6 +78,10 @@ class TaggingEngine(Protocol):
     def tag(self, source: bytes, semantics: SemanticDocumentIR) -> bytes: ...
 
 
+class PDFNormalizer(Protocol):
+    def normalize(self, content: bytes) -> tuple[bytes, dict[str, Any]]: ...
+
+
 class AccessibilityValidator(Protocol):
     def validate(
         self,

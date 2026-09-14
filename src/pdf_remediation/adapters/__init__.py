@@ -1,3 +1,4 @@
+from pdf_remediation.adapters.font_normalizer import CIDSetFontNormalizer
 from pdf_remediation.adapters.finalization import AccessibilityReportGenerator, PassThroughFinalizer
 from pdf_remediation.adapters.mock import (
     MockAccessibilityValidator,
@@ -18,6 +19,7 @@ from pdf_remediation.adapters.pymupdf import PyMuPDFExtractor
 from pdf_remediation.adapters.verapdf import VeraPDFValidator
 
 __all__ = [
+    "CIDSetFontNormalizer",
     "AccessibilityReportGenerator",
     "PassThroughFinalizer",
     "MockAccessibilityValidator",

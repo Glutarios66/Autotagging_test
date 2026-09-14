@@ -77,7 +77,7 @@ class RemediationService:
                 )
             elif isinstance(value, bytes):
                 media = "application/pdf" if key.endswith("_pdf") else "application/octet-stream"
-                if key == "report":
+                if key in {"report", "normalization_report"}:
                     media = "application/json"
                 self._persist(job, run, key, value, media)
 
