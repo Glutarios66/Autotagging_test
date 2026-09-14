@@ -13,6 +13,7 @@ from pdf_remediation.adapters import (
     MockPDFRemediator,
     MockReportGenerator,
     MockSemanticAnalyzer,
+    PyMuPDFExtractor,
 )
 from pdf_remediation.application import RemediationService
 from pdf_remediation.infrastructure import (
@@ -49,9 +50,17 @@ class Container:
 def build_container(settings: Settings | None = None) -> Container:
     settings = settings or Settings()
     configure_logging(settings.log_level, settings.json_logs)
-    engine_args = {"connect_args": {"check_same_thread": False}} if settings.database_url.startswith("sqlite") else {}
+    engine_args = (
+        {"connect_args": {"check_same_thread": False}}
+        if settings.database_url.startswith("sqlite")
+        else {}
+    )
     engine = create_engine(settings.database_url, **engine_args)
+
+    # Kept for compatibility with the current local/test bootstrap.
+    # Production schema ownership should remain with Alembic.
     Base.metadata.create_all(engine)
+
     repository = SQLAlchemyRepository(sessionmaker(engine, expire_on_commit=False))
     if settings.artifact_backend in {"s3", "minio"}:
         store: ArtifactStore = S3ArtifactStore(
@@ -67,14 +76,17 @@ def build_container(settings: Settings | None = None) -> Container:
     adapters = AdapterRegistry()
     adapters.register("baseline", "mock", BaselineComponent())
     adapters.register("extract", "mock", ExtractComponent(MockPDFExtractor()))
+    adapters.register("extract", "pymupdf", ExtractComponent(PyMuPDFExtractor()))
     adapters.register("semantic_analysis", "mock", AnalyzeComponent(MockSemanticAnalyzer()))
     adapters.register("multimodal_analysis", "mock", MultimodalComponent(MockMultimodalModel()))
     adapters.register("remediation", "mock", RemediateComponent(MockPDFRemediator()))
     adapters.register("validation", "mock", ValidateComponent(MockAccessibilityValidator()))
     adapters.register("finalization", "mock", FinalizeComponent(MockFinalizer()))
     adapters.register("report", "mock", ReportComponent(MockReportGenerator()))
+
     recipes = RecipeRegistry()
     for recipe in load_recipes(settings.recipe_dir):
         recipes.register(recipe)
+
     service = RemediationService(repository, store, recipes, PipelineExecutor(adapters))
     return Container(settings, repository, store, recipes, adapters, service)

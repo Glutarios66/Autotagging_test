@@ -29,6 +29,43 @@ class MultimodalModel(Protocol):
     def infer(self, content: bytes, document: DocumentIR) -> SemanticDocumentIR: ...
 
 
+class StructureAnalyzer(Protocol):
+    def analyze_structure(
+        self,
+        document: DocumentIR,
+        semantics: SemanticDocumentIR | None = None,
+    ) -> SemanticDocumentIR: ...
+
+
+class ReadingOrderAnalyzer(Protocol):
+    def analyze_reading_order(self, document: DocumentIR) -> DocumentIR: ...
+
+
+class TableAnalyzer(Protocol):
+    def analyze_tables(
+        self,
+        document: DocumentIR,
+        semantics: SemanticDocumentIR | None = None,
+    ) -> SemanticDocumentIR: ...
+
+
+class FigureAnalyzer(Protocol):
+    def analyze_figures(
+        self,
+        document: DocumentIR,
+        semantics: SemanticDocumentIR | None = None,
+    ) -> SemanticDocumentIR: ...
+
+
+class AltTextGenerator(Protocol):
+    def generate_alt_text(
+        self,
+        content: bytes,
+        document: DocumentIR,
+        semantics: SemanticDocumentIR,
+    ) -> SemanticDocumentIR: ...
+
+
 class StructureGenerator(Protocol):
     def generate(self, document: DocumentIR) -> SemanticDocumentIR: ...
 
@@ -43,7 +80,9 @@ class TaggingEngine(Protocol):
 
 class AccessibilityValidator(Protocol):
     def validate(
-        self, content: bytes, semantics: SemanticDocumentIR | None = None
+        self,
+        content: bytes,
+        semantics: SemanticDocumentIR | None = None,
     ) -> ValidationResult: ...
 
 

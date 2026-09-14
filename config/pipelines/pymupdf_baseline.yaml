@@ -1,0 +1,12 @@
+name: pymupdf_baseline
+description: Real PyMuPDF extraction into the canonical DocumentIR, followed by mock semantic analysis.
+version: "1"
+steps:
+  - id: extract
+    type: extract
+    adapter: pymupdf
+
+  - id: analyze
+    type: semantic_analysis
+    adapter: mock
+    needs: [extract]

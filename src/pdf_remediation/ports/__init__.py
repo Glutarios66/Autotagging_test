@@ -1,5 +1,7 @@
 from pdf_remediation.ports.adapters import (
     AccessibilityValidator,
+    AltTextGenerator,
+    FigureAnalyzer,
     Finalizer,
     LayoutAnalyzer,
     MultimodalModel,
@@ -7,16 +9,21 @@ from pdf_remediation.ports.adapters import (
     PDFExtractor,
     PDFParser,
     PDFRemediator,
+    ReadingOrderAnalyzer,
     ReportGenerator,
     SemanticAnalyzer,
+    StructureAnalyzer,
     StructureGenerator,
+    TableAnalyzer,
     TaggingEngine,
 )
 from pdf_remediation.ports.persistence import ArtifactStore, Repository
 
 __all__ = [
     "AccessibilityValidator",
+    "AltTextGenerator",
     "ArtifactStore",
+    "FigureAnalyzer",
     "Finalizer",
     "LayoutAnalyzer",
     "MultimodalModel",
@@ -24,9 +31,12 @@ __all__ = [
     "PDFExtractor",
     "PDFParser",
     "PDFRemediator",
+    "ReadingOrderAnalyzer",
     "ReportGenerator",
     "Repository",
     "SemanticAnalyzer",
+    "StructureAnalyzer",
     "StructureGenerator",
+    "TableAnalyzer",
     "TaggingEngine",
 ]

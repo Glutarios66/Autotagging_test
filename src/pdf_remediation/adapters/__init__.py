@@ -7,6 +7,7 @@ from pdf_remediation.adapters.mock import (
     MockReportGenerator,
     MockSemanticAnalyzer,
 )
+from pdf_remediation.adapters.pymupdf import PyMuPDFExtractor
 
 __all__ = [
     "MockAccessibilityValidator",
@@ -16,4 +17,5 @@ __all__ = [
     "MockPDFRemediator",
     "MockReportGenerator",
     "MockSemanticAnalyzer",
+    "PyMuPDFExtractor",
 ]
