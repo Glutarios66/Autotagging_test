@@ -1,0 +1,27 @@
+name: multimodal_end_to_end
+description: End-to-end remediation using a multimodal semantic adapter.
+version: "1"
+steps:
+  - id: extract
+    type: extract
+    adapter: mock
+  - id: multimodal_analyze
+    type: multimodal_analysis
+    adapter: mock
+    needs: [extract]
+  - id: remediate
+    type: remediation
+    adapter: mock
+    needs: [multimodal_analyze]
+  - id: validate
+    type: validation
+    adapter: mock
+    needs: [remediate]
+  - id: finalize
+    type: finalization
+    adapter: mock
+    needs: [validate]
+  - id: report
+    type: report
+    adapter: mock
+    needs: [validate]
