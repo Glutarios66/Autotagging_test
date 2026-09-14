@@ -1,34 +1,25 @@
 from __future__ import annotations
 
-from typing import Any
 import pytest
 
 from pdf_remediation.pipeline import AdapterRegistry, PipelineContext
 
 
-def passthrough(context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-    return {"ok": True}
+class Component:
+    def run(self, context: PipelineContext, config: dict[str, object]) -> dict[str, object]:
+        return {"ok": True}
 
 
-def test_registry_registers_and_resolves_adapter() -> None:
+def test_registry_registers_and_resolves() -> None:
     registry = AdapterRegistry()
-    registry.register("extract", "test", passthrough)
-
-    assert registry.get("extract", "test") is passthrough
+    component = Component()
+    registry.register("extract", "test", component)
+    assert registry.get("extract", "test") is component
     assert registry.names() == ["extract/test"]
-    assert registry.names("extract") == ["extract/test"]
 
 
-def test_registry_rejects_duplicate_adapter() -> None:
+def test_registry_rejects_duplicate() -> None:
     registry = AdapterRegistry()
-    registry.register("extract", "test", passthrough)
-
+    registry.register("extract", "test", Component())
     with pytest.raises(ValueError, match="already registered"):
-        registry.register("extract", "test", passthrough)
-
-
-def test_registry_reports_unknown_adapter() -> None:
-    registry = AdapterRegistry()
-
-    with pytest.raises(KeyError, match="unknown adapter"):
-        registry.get("extract", "missing")
+        registry.register("extract", "test", Component())

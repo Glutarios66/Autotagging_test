@@ -1,5 +1,5 @@
-name: remediate
-description: Deprecated compatibility alias for structured_pipeline.
+name: mock_remediation
+description: Fully deterministic mock remediation flow.
 version: "1"
 steps:
   - id: extract
@@ -19,5 +19,9 @@ steps:
     needs: [remediate]
   - id: finalize
     type: finalization
+    adapter: mock
+    needs: [validate]
+  - id: report
+    type: report
     adapter: mock
     needs: [validate]

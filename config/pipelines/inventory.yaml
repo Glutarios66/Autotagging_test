@@ -1,7 +1,0 @@
-name: inventory
-description: Deprecated alias of the deterministic baseline inventory stage.
-version: "1"
-steps:
-  - id: baseline
-    type: baseline
-    adapter: mock

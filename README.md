@@ -1,43 +1,69 @@
 # PDF Remediation Research Foundation
 
-A runnable Python 3.12 modular monolith for researching AI-assisted PDF accessibility remediation. It separates stable domain and intermediate-representation models from adapter interfaces, pipeline orchestration, infrastructure, and delivery mechanisms. The included adapters are deterministic mocks: they make the full upload-to-artifact workflow testable, but do not claim production PDF/UA conformance.
+A modular Python 3.12 research platform for PDF accessibility remediation.
+
+The project keeps stable intermediate representations and pipeline orchestration
+separate from concrete extraction, AI, remediation, validation and storage
+adapters.
+
+## Current real capability
+
+The repository includes a real `PyMuPDFExtractor` that maps PDF text/image blocks
+into the canonical `DocumentIR`.
+
+The remaining semantic-analysis, remediation, validation and report adapters are
+deterministic research mocks. They are intentionally not presented as PDF/UA
+conformance tooling.
+
+## Architecture
+
+```text
+PDF upload
+  -> recipe
+  -> extractor
+  -> DocumentIR
+  -> semantic analysis
+  -> SemanticDocumentIR
+  -> remediation candidate
+  -> validation
+  -> finalization/report
+  -> artifacts
+```
+
+Adapters are resolved through `(stage_type, adapter_name)` pairs, so a recipe can
+switch from `mock` extraction to `pymupdf` without changing the pipeline core.
 
 ## Quick start
 
 ```bash
 python3.12 -m venv .venv
-. .venv/bin/activate
+source .venv/bin/activate
 pip install -e '.[dev]'
+
 alembic upgrade head
+pytest
+ruff check .
+mypy src
+
 uvicorn pdf_remediation.api.main:app --reload
 ```
 
-Upload and run the default mock recipe synchronously:
+Run a real extraction baseline:
 
 ```bash
-curl -F 'file=@sample.pdf' 'http://localhost:8000/jobs?recipe=remediate'
+curl -F 'file=@sample.pdf'   -F 'recipe_name=pymupdf_baseline'   http://localhost:8000/jobs
 ```
 
-Use the returned `job_id` through `GET /jobs/{id}/artifacts`, then download an artifact from `GET /artifacts/{id}`. Other endpoints are `GET /health`, `GET /recipes`, `GET /jobs/{id}`, and `GET /runs/{id}`.
+## Recipes
 
-## Recipes and adapters
+- `mock_remediation`: complete deterministic mock flow.
+- `pymupdf_baseline`: real PyMuPDF extraction + mock semantic analysis.
 
-YAML recipes in `config/pipelines` define dependency-checked DAGs. `inventory` records file facts, `analyze` builds document and semantic IRs, and `remediate` additionally emits a marker-bearing mock PDF and report. Components are resolved through registries, allowing real extractors, AI analyzers, remediators, and validators to replace mocks without changing application services.
+## Next research increments
 
-## Persistence and workers
-
-The local default uses SQLite and `./artifacts`. Set `PDFR_ARTIFACT_BACKEND=s3` plus S3 settings for MinIO or compatible storage. SQLAlchemy provides runtime persistence and Alembic owns schema migration. Set `PDFR_RUN_JOBS_INLINE=false` to enqueue runs on Celery.
-
-Run the complete deployment with `docker compose up --build`; this starts the API, Celery worker, PostgreSQL, Redis, and MinIO (console on port 9001).
-
-## Quality checks
-
-```bash
-pytest --cov=pdf_remediation
-ruff check .
-mypy src
-```
-
-## Limitations
-
-The mock parser recognizes basic PDF tokens rather than parsing arbitrary PDFs. The mock remediator only inserts an auditable marker. Production work should supply hardened PDF parsing/tagging, model governance, sandboxing, malware scanning, authentication, observability, and an independent PDF/UA validator.
+1. OpenDataLoader adapter emitting the same `DocumentIR`.
+2. Real structure-analysis adapter.
+3. Reading-order, table, figure and alt-text analyzers.
+4. Real tagged-PDF remediation writer.
+5. veraPDF validation adapter.
+6. Human-in-the-loop corrections and experiment metrics.

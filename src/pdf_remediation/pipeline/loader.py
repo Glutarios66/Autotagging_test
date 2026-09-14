@@ -7,11 +7,11 @@ import yaml
 from pdf_remediation.pipeline.models import PipelineRecipe
 
 
-def load_recipe(path: Path) -> PipelineRecipe:
-    with path.open(encoding="utf-8") as stream:
-        data = yaml.safe_load(stream)
-    return PipelineRecipe.model_validate(data)
-
-
-def load_recipes(directory: Path) -> list[PipelineRecipe]:
-    return [load_recipe(path) for path in sorted(directory.glob("*.yaml"))]
+def load_recipes(recipe_dir: Path) -> list[PipelineRecipe]:
+    recipes: list[PipelineRecipe] = []
+    if not recipe_dir.exists():
+        return recipes
+    for path in sorted(recipe_dir.glob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        recipes.append(PipelineRecipe.model_validate(data))
+    return recipes

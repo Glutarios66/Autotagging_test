@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import Any
 
-from pdf_remediation.pipeline.models import PipelineContext
+from pdf_remediation.ir import DocumentIR, SemanticDocumentIR, ValidationResult
+from pdf_remediation.pipeline.runtime import PipelineContext
 from pdf_remediation.ports import (
     AccessibilityValidator,
     Finalizer,
-    MultimodalModel,
     PDFExtractor,
     PDFRemediator,
     ReportGenerator,
@@ -17,95 +16,72 @@ from pdf_remediation.ports import (
 
 
 class ExtractComponent:
-    def __init__(self, extractor: PDFExtractor) -> None:
-        self.extractor = extractor
+    def __init__(self, adapter: PDFExtractor) -> None:
+        self.adapter = adapter
 
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        return {"document_ir": self.extractor.extract(context["source_bytes"])}
+    def run(self, context: PipelineContext, config: dict[str, object]) -> dict[str, object]:
+        document = self.adapter.extract(context.source_pdf)
+        return {"document_ir": document}
 
 
 class AnalyzeComponent:
-    def __init__(self, analyzer: SemanticAnalyzer) -> None:
-        self.analyzer = analyzer
+    def __init__(self, adapter: SemanticAnalyzer) -> None:
+        self.adapter = adapter
 
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        return {"semantic_ir": self.analyzer.analyze(context["document_ir"])}
-
-
-class MultimodalComponent:
-    def __init__(self, model: MultimodalModel) -> None:
-        self.model = model
-
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "semantic_ir": self.model.infer(context["source_bytes"], context["document_ir"])
-        }
+    def run(self, context: PipelineContext, config: dict[str, object]) -> dict[str, object]:
+        document = context.values["document_ir"]
+        if not isinstance(document, DocumentIR):
+            raise TypeError("document_ir missing")
+        return {"semantic_ir": self.adapter.analyze(document)}
 
 
 class RemediateComponent:
-    def __init__(self, remediator: PDFRemediator) -> None:
-        self.remediator = remediator
+    def __init__(self, adapter: PDFRemediator) -> None:
+        self.adapter = adapter
 
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "candidate_pdf": self.remediator.remediate(
-                context["source_bytes"], context["semantic_ir"]
-            )
-        }
+    def run(self, context: PipelineContext, config: dict[str, object]) -> dict[str, object]:
+        semantics = context.values["semantic_ir"]
+        if not isinstance(semantics, SemanticDocumentIR):
+            raise TypeError("semantic_ir missing")
+        return {"candidate_pdf": self.adapter.remediate(context.source_pdf, semantics)}
 
 
 class ValidateComponent:
-    def __init__(self, validator: AccessibilityValidator) -> None:
-        self.validator = validator
+    def __init__(self, adapter: AccessibilityValidator) -> None:
+        self.adapter = adapter
 
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        content = context.get("candidate_pdf", context["source_bytes"])
-        return {"validation_result": self.validator.validate(content, context.get("semantic_ir"))}
+    def run(self, context: PipelineContext, config: dict[str, object]) -> dict[str, object]:
+        candidate = context.values.get("candidate_pdf", context.source_pdf)
+        if not isinstance(candidate, bytes):
+            raise TypeError("candidate_pdf invalid")
+        semantics = context.values.get("semantic_ir")
+        semantic_ir = semantics if isinstance(semantics, SemanticDocumentIR) else None
+        return {"validation": self.adapter.validate(candidate, semantic_ir)}
 
 
 class FinalizeComponent:
-    def __init__(self, finalizer: Finalizer) -> None:
-        self.finalizer = finalizer
+    def __init__(self, adapter: Finalizer) -> None:
+        self.adapter = adapter
 
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "final_pdf": self.finalizer.finalize(
-                context["candidate_pdf"], context["validation_result"]
-            )
-        }
+    def run(self, context: PipelineContext, config: dict[str, object]) -> dict[str, object]:
+        candidate = context.values.get("candidate_pdf", context.source_pdf)
+        validation = context.values["validation"]
+        if not isinstance(candidate, bytes) or not isinstance(validation, ValidationResult):
+            raise TypeError("finalization inputs missing")
+        return {"final_pdf": self.adapter.finalize(candidate, validation)}
 
 
 class ReportComponent:
-    def __init__(self, generator: ReportGenerator) -> None:
-        self.generator = generator
+    def __init__(self, adapter: ReportGenerator) -> None:
+        self.adapter = adapter
 
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
+    def run(self, context: PipelineContext, config: dict[str, object]) -> dict[str, object]:
+        validation = context.values["validation"]
+        if not isinstance(validation, ValidationResult):
+            raise TypeError("validation missing")
         return {
-            "report": self.generator.generate(
-                context["validation_result"],
+            "report": self.adapter.generate(
+                validation,
                 {"job_id": str(context.job_id), "run_id": str(context.run_id)},
             )
         }
-
-
-class BaselineComponent:
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        source = context["source_bytes"]
-        return {
-            "inventory": {
-                "filename": context["filename"],
-                "size": len(source),
-                "sha256": hashlib.sha256(source).hexdigest(),
-                "is_pdf": source.startswith(b"%PDF-"),
-            }
-        }
-
-
-class SerializeComponent:
-    def __call__(self, context: PipelineContext, config: dict[str, Any]) -> dict[str, Any]:
-        value = context[config["input"]]
-        if hasattr(value, "model_dump_json"):
-            content = value.model_dump_json(indent=2).encode()
-        else:
-            content = json.dumps(value, indent=2, sort_keys=True).encode()
-        return {config.get("output", "serialized"): content}

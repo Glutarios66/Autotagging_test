@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker
 from pdf_remediation.adapters import (
     MockAccessibilityValidator,
     MockFinalizer,
-    MockMultimodalModel,
     MockPDFExtractor,
     MockPDFRemediator,
     MockReportGenerator,
@@ -17,7 +16,6 @@ from pdf_remediation.adapters import (
 )
 from pdf_remediation.application import RemediationService
 from pdf_remediation.infrastructure import (
-    Base,
     FileSystemArtifactStore,
     S3ArtifactStore,
     SQLAlchemyRepository,
@@ -25,10 +23,8 @@ from pdf_remediation.infrastructure import (
 from pdf_remediation.pipeline import AdapterRegistry, PipelineExecutor, RecipeRegistry, load_recipes
 from pdf_remediation.pipeline.components import (
     AnalyzeComponent,
-    BaselineComponent,
     ExtractComponent,
     FinalizeComponent,
-    MultimodalComponent,
     RemediateComponent,
     ReportComponent,
     ValidateComponent,
@@ -50,18 +46,15 @@ class Container:
 def build_container(settings: Settings | None = None) -> Container:
     settings = settings or Settings()
     configure_logging(settings.log_level, settings.json_logs)
+
     engine_args = (
         {"connect_args": {"check_same_thread": False}}
         if settings.database_url.startswith("sqlite")
         else {}
     )
     engine = create_engine(settings.database_url, **engine_args)
-
-    # Kept for compatibility with the current local/test bootstrap.
-    # Production schema ownership should remain with Alembic.
-    Base.metadata.create_all(engine)
-
     repository = SQLAlchemyRepository(sessionmaker(engine, expire_on_commit=False))
+
     if settings.artifact_backend in {"s3", "minio"}:
         store: ArtifactStore = S3ArtifactStore(
             settings.s3_bucket,
@@ -74,11 +67,9 @@ def build_container(settings: Settings | None = None) -> Container:
         store = FileSystemArtifactStore(settings.artifact_root)
 
     adapters = AdapterRegistry()
-    adapters.register("baseline", "mock", BaselineComponent())
     adapters.register("extract", "mock", ExtractComponent(MockPDFExtractor()))
     adapters.register("extract", "pymupdf", ExtractComponent(PyMuPDFExtractor()))
     adapters.register("semantic_analysis", "mock", AnalyzeComponent(MockSemanticAnalyzer()))
-    adapters.register("multimodal_analysis", "mock", MultimodalComponent(MockMultimodalModel()))
     adapters.register("remediation", "mock", RemediateComponent(MockPDFRemediator()))
     adapters.register("validation", "mock", ValidateComponent(MockAccessibilityValidator()))
     adapters.register("finalization", "mock", FinalizeComponent(MockFinalizer()))
