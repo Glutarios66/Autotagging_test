@@ -35,19 +35,20 @@ class RemediationService:
         self.repository.update_job(job)
         self.repository.update_run(run)
 
+        context = PipelineContext(job_id=job.id, run_id=run.id, source_pdf=content)
         try:
-            context = PipelineContext(job_id=job.id, run_id=run.id, source_pdf=content)
             self.executor.execute(recipe, context)
-            self._persist_outputs(job, run, context.values)
             job.status = "succeeded"
             run.status = "succeeded"
-            run.finished_at = datetime.now(timezone.utc)
         except Exception as exc:
             job.status = "failed"
             run.status = "failed"
             run.error = str(exc)
-            run.finished_at = datetime.now(timezone.utc)
         finally:
+            # Persist every output produced before a failure so debugging does not
+            # collapse to source_pdf only.
+            self._persist_outputs(job, run, context.values)
+            run.finished_at = datetime.now(timezone.utc)
             self.repository.update_job(job)
             self.repository.update_run(run)
 

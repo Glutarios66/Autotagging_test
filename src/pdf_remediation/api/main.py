@@ -9,7 +9,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile
 from pdf_remediation.bootstrap import Container, build_container
 from pdf_remediation.domain.review import Experiment, ExperimentMetric, ReviewCorrection
 
-app = FastAPI(title="PDF Remediation Research API", version="0.3.0")
+app = FastAPI(title="PDF Remediation Research API", version="0.5.0")
 
 
 @lru_cache(maxsize=1)
@@ -27,6 +27,27 @@ def list_recipes() -> dict[str, list[str]]:
     return {"recipes": container().recipes.names()}
 
 
+@app.get("/recipes/status")
+def recipe_status() -> dict[str, dict[str, object]]:
+    current = container()
+    statuses: dict[str, dict[str, object]] = {}
+    registered = set(current.adapters.names())
+
+    for recipe_name in current.recipes.names():
+        recipe = current.recipes.get(recipe_name)
+        missing = [
+            f"{step.type}/{step.adapter}"
+            for step in recipe.steps
+            if f"{step.type}/{step.adapter}" not in registered
+        ]
+        statuses[recipe_name] = {
+            "ready": not missing,
+            "missing_adapters": missing,
+        }
+
+    return statuses
+
+
 @app.get("/adapters")
 def list_adapters() -> dict[str, list[str]]:
     return {"adapters": container().adapters.names()}
@@ -35,7 +56,7 @@ def list_adapters() -> dict[str, list[str]]:
 @app.post("/jobs", status_code=201)
 async def create_job(
     file: UploadFile = File(...),
-    recipe_name: str = Form("pymupdf_baseline"),
+    recipe_name: str = Form("accessibility_full"),
 ) -> dict[str, object]:
     settings = container().settings
     content = await file.read(settings.max_upload_bytes + 1)

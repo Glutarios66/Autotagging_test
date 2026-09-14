@@ -10,9 +10,9 @@ def test_pipeline_orders_dependencies() -> None:
     recipe = PipelineRecipe(
         name="dag",
         steps=[
-            StepSpec(id="validate", type="validation", adapter="mock", needs=["analyze"]),
-            StepSpec(id="extract", type="extract", adapter="mock"),
-            StepSpec(id="analyze", type="semantic_analysis", adapter="mock", needs=["extract"]),
+            StepSpec(id="validate", type="validation", adapter="test_adapter", needs=["analyze"]),
+            StepSpec(id="extract", type="extract", adapter="test_adapter"),
+            StepSpec(id="analyze", type="semantic_analysis", adapter="test_adapter", needs=["extract"]),
         ],
     )
     assert [s.id for s in recipe.ordered_steps()] == ["extract", "analyze", "validate"]
@@ -23,7 +23,7 @@ def test_pipeline_rejects_cycles() -> None:
         PipelineRecipe(
             name="cycle",
             steps=[
-                StepSpec(id="a", type="x", adapter="mock", needs=["b"]),
-                StepSpec(id="b", type="x", adapter="mock", needs=["a"]),
+                StepSpec(id="a", type="x", adapter="test_adapter", needs=["b"]),
+                StepSpec(id="b", type="x", adapter="test_adapter", needs=["a"]),
             ],
         )

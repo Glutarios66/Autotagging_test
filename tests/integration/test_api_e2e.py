@@ -17,11 +17,7 @@ def migrate(database_url: str) -> None:
     command.upgrade(cfg, "head")
 
 
-def test_upload_pymupdf_recipe(
-    tmp_path: Path,
-    monkeypatch,
-    simple_pdf_bytes: bytes,
-) -> None:
+def _client(tmp_path: Path, monkeypatch) -> TestClient:
     database_url = f"sqlite:///{tmp_path / 'test.db'}"
     monkeypatch.setenv("PDFR_DATABASE_URL", database_url)
     migrate(database_url)
@@ -35,17 +31,22 @@ def test_upload_pymupdf_recipe(
     )
     test_container = build_container(settings)
     monkeypatch.setattr(api, "container", lambda: test_container)
+    return TestClient(api.app)
 
-    client = TestClient(api.app)
-    response = client.post(
-        "/jobs",
-        files={"file": ("fixture.pdf", simple_pdf_bytes, "application/pdf")},
-        data={"recipe_name": "pymupdf_baseline"},
-    )
-    assert response.status_code == 201, response.text
-    payload = response.json()
-    assert payload["run"]["status"] == "succeeded"
 
-    artifacts = client.get(f"/jobs/{payload['job']['id']}/artifacts").json()
-    kinds = {artifact["kind"] for artifact in artifacts}
-    assert {"source_pdf", "document_ir", "semantic_ir"} <= kinds
+def test_api_exposes_only_current_recipes(tmp_path: Path, monkeypatch) -> None:
+    client = _client(tmp_path, monkeypatch)
+    response = client.get("/recipes")
+    assert response.status_code == 200
+    assert set(response.json()["recipes"]) == {"accessibility_full", "accessibility_ai"}
+
+
+def test_recipe_status_marks_ai_unready_without_key(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("PDFR_OPENAI_API_KEY", raising=False)
+    client = _client(tmp_path, monkeypatch)
+
+    payload = client.get("/recipes/status").json()
+    assert payload["accessibility_full"]["ready"] is True
+    assert payload["accessibility_ai"]["ready"] is False
+    assert "semantic_analysis/openai" in payload["accessibility_ai"]["missing_adapters"]

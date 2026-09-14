@@ -1,6 +1,6 @@
 name: accessibility_ai
-description: Preflight + PyMuPDF/OpenAI semantics + real tagging + CIDSet normalization + postflight veraPDF.
-version: "2"
+description: Experimental AI semantics + OpenDataLoader tagging + full PDF/UA normalization + veraPDF postflight.
+version: "3"
 steps:
   - id: preflight
     type: validation
@@ -23,9 +23,9 @@ steps:
     adapter: opendataloader
     needs: [analyze]
 
-  - id: normalize_fonts
+  - id: normalize_pdfua
     type: normalization
-    adapter: cidset
+    adapter: pdfua
     needs: [remediate]
     config:
       input: candidate_pdf
@@ -35,7 +35,7 @@ steps:
   - id: postflight
     type: validation
     adapter: verapdf
-    needs: [preflight, normalize_fonts]
+    needs: [preflight, normalize_pdfua]
     config:
       input: normalized_pdf
       output: validation
@@ -52,4 +52,5 @@ steps:
     config:
       input: normalized_pdf
       validation: validation
+      output: final_pdf
       require_valid: true

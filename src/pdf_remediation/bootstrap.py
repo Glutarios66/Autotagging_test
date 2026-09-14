@@ -7,13 +7,6 @@ from sqlalchemy.orm import sessionmaker
 
 from pdf_remediation.adapters import (
     AccessibilityReportGenerator,
-    CIDSetFontNormalizer,
-    MockAccessibilityValidator,
-    MockFinalizer,
-    MockPDFExtractor,
-    MockPDFRemediator,
-    MockReportGenerator,
-    MockSemanticAnalyzer,
     OpenAIStructureAnalyzer,
     OpenDataLoaderExtractor,
     OpenDataLoaderSemanticAnalyzer,
@@ -81,7 +74,6 @@ def build_container(settings: Settings | None = None) -> Container:
     adapters = AdapterRegistry()
 
     # Extraction
-    adapters.register("extract", "mock", ExtractComponent(MockPDFExtractor()))
     adapters.register("extract", "pymupdf", ExtractComponent(PyMuPDFExtractor()))
     adapters.register(
         "extract",
@@ -90,7 +82,6 @@ def build_container(settings: Settings | None = None) -> Container:
     )
 
     # Semantic analysis
-    adapters.register("semantic_analysis", "mock", AnalyzeComponent(MockSemanticAnalyzer()))
     adapters.register(
         "semantic_analysis",
         "opendataloader",
@@ -110,7 +101,6 @@ def build_container(settings: Settings | None = None) -> Container:
         )
 
     # Remediation
-    adapters.register("remediation", "mock", RemediateComponent(MockPDFRemediator()))
     adapters.register(
         "remediation",
         "opendataloader",
@@ -118,11 +108,6 @@ def build_container(settings: Settings | None = None) -> Container:
     )
 
     # Targeted PDF normalization
-    adapters.register(
-        "normalization",
-        "cidset",
-        NormalizeComponent(CIDSetFontNormalizer()),
-    )
 
     adapters.register(
         "normalization",
@@ -131,7 +116,6 @@ def build_container(settings: Settings | None = None) -> Container:
     )
 
     # Validation/finalization/reporting
-    adapters.register("validation", "mock", ValidateComponent(MockAccessibilityValidator()))
     adapters.register(
         "validation",
         "verapdf",
@@ -142,13 +126,11 @@ def build_container(settings: Settings | None = None) -> Container:
             )
         ),
     )
-    adapters.register("finalization", "mock", FinalizeComponent(MockFinalizer()))
     adapters.register(
         "finalization",
         "passthrough",
         FinalizeComponent(PassThroughFinalizer()),
     )
-    adapters.register("report", "mock", ReportComponent(MockReportGenerator()))
     adapters.register(
         "report",
         "accessibility",
