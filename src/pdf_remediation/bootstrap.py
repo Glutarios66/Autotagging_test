@@ -6,15 +6,23 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from pdf_remediation.adapters import (
+    AccessibilityReportGenerator,
     MockAccessibilityValidator,
     MockFinalizer,
     MockPDFExtractor,
     MockPDFRemediator,
     MockReportGenerator,
     MockSemanticAnalyzer,
+    OpenAIStructureAnalyzer,
+    OpenDataLoaderExtractor,
+    OpenDataLoaderSemanticAnalyzer,
+    OpenDataLoaderTagger,
+    PassThroughFinalizer,
     PyMuPDFExtractor,
+    VeraPDFValidator,
 )
 from pdf_remediation.application import RemediationService
+from pdf_remediation.application.review_service import ReviewExperimentService
 from pdf_remediation.infrastructure import (
     FileSystemArtifactStore,
     S3ArtifactStore,
@@ -41,6 +49,7 @@ class Container:
     recipes: RecipeRegistry
     adapters: AdapterRegistry
     service: RemediationService
+    review_service: ReviewExperimentService
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -67,17 +76,80 @@ def build_container(settings: Settings | None = None) -> Container:
         store = FileSystemArtifactStore(settings.artifact_root)
 
     adapters = AdapterRegistry()
+
+    # Extraction
     adapters.register("extract", "mock", ExtractComponent(MockPDFExtractor()))
     adapters.register("extract", "pymupdf", ExtractComponent(PyMuPDFExtractor()))
+    adapters.register(
+        "extract",
+        "opendataloader",
+        ExtractComponent(OpenDataLoaderExtractor()),
+    )
+
+    # Semantic analysis
     adapters.register("semantic_analysis", "mock", AnalyzeComponent(MockSemanticAnalyzer()))
+    adapters.register(
+        "semantic_analysis",
+        "opendataloader",
+        AnalyzeComponent(OpenDataLoaderSemanticAnalyzer()),
+    )
+    if settings.openai_api_key:
+        adapters.register(
+            "semantic_analysis",
+            "openai",
+            AnalyzeComponent(
+                OpenAIStructureAnalyzer(
+                    api_key=settings.openai_api_key,
+                    model=settings.openai_model,
+                    base_url=settings.openai_base_url,
+                )
+            ),
+        )
+
+    # Remediation
     adapters.register("remediation", "mock", RemediateComponent(MockPDFRemediator()))
+    adapters.register(
+        "remediation",
+        "opendataloader",
+        RemediateComponent(OpenDataLoaderTagger()),
+    )
+
+    # Validation/finalization/reporting
     adapters.register("validation", "mock", ValidateComponent(MockAccessibilityValidator()))
+    adapters.register(
+        "validation",
+        "verapdf",
+        ValidateComponent(
+            VeraPDFValidator(
+                executable=settings.verapdf_executable,
+                flavour=settings.verapdf_flavour,
+            )
+        ),
+    )
     adapters.register("finalization", "mock", FinalizeComponent(MockFinalizer()))
+    adapters.register(
+        "finalization",
+        "passthrough",
+        FinalizeComponent(PassThroughFinalizer()),
+    )
     adapters.register("report", "mock", ReportComponent(MockReportGenerator()))
+    adapters.register(
+        "report",
+        "accessibility",
+        ReportComponent(AccessibilityReportGenerator()),
+    )
 
     recipes = RecipeRegistry()
     for recipe in load_recipes(settings.recipe_dir):
         recipes.register(recipe)
 
     service = RemediationService(repository, store, recipes, PipelineExecutor(adapters))
-    return Container(settings, repository, store, recipes, adapters, service)
+    return Container(
+        settings=settings,
+        repository=repository,
+        artifact_store=store,
+        recipes=recipes,
+        adapters=adapters,
+        service=service,
+        review_service=ReviewExperimentService(),
+    )

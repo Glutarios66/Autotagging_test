@@ -17,6 +17,7 @@ class Provenance(BaseModel):
     source: str
     adapter: str | None = None
     adapter_version: str | None = None
+    model: str | None = None
     confidence: float | None = None
     source_element_ids: list[str] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
@@ -60,6 +61,7 @@ class SemanticNode(BaseModel):
     text: str | None = None
     confidence: float | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    provenance: list[Provenance] = Field(default_factory=list)
 
 
 class SemanticDocumentIR(BaseModel):

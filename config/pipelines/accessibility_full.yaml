@@ -1,0 +1,32 @@
+name: accessibility_full
+description: Real OpenDataLoader extraction, structure analysis, Tagged PDF generation and veraPDF PDF/UA-1 validation.
+version: "1"
+steps:
+  - id: extract
+    type: extract
+    adapter: opendataloader
+
+  - id: analyze
+    type: semantic_analysis
+    adapter: opendataloader
+    needs: [extract]
+
+  - id: remediate
+    type: remediation
+    adapter: opendataloader
+    needs: [analyze]
+
+  - id: validate
+    type: validation
+    adapter: verapdf
+    needs: [remediate]
+
+  - id: finalize
+    type: finalization
+    adapter: passthrough
+    needs: [validate]
+
+  - id: report
+    type: report
+    adapter: accessibility
+    needs: [validate]

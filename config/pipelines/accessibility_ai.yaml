@@ -1,0 +1,27 @@
+name: accessibility_ai
+description: PyMuPDF extraction + optional OpenAI structure analysis + OpenDataLoader Tagged PDF writer + veraPDF validation.
+version: "1"
+steps:
+  - id: extract
+    type: extract
+    adapter: pymupdf
+  - id: analyze
+    type: semantic_analysis
+    adapter: openai
+    needs: [extract]
+  - id: remediate
+    type: remediation
+    adapter: opendataloader
+    needs: [analyze]
+  - id: validate
+    type: validation
+    adapter: verapdf
+    needs: [remediate]
+  - id: finalize
+    type: finalization
+    adapter: passthrough
+    needs: [validate]
+  - id: report
+    type: report
+    adapter: accessibility
+    needs: [validate]

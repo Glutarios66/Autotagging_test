@@ -89,7 +89,11 @@ class RemediationService:
         content: bytes,
         media_type: str,
     ) -> None:
-        key = f"{job.id}/{run.id}/{kind}"
+        extension = {
+            "application/pdf": ".pdf",
+            "application/json": ".json",
+        }.get(media_type, "")
+        key = f"{job.id}/{run.id}/{kind}{extension}"
         uri = self.store.put(key, content, media_type)
         self.repository.add_artifact(
             Artifact(

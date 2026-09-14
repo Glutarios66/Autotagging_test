@@ -30,10 +30,16 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/1"
     celery_queue: str = "pdf-remediation"
 
+    # Real adapter configuration
+    verapdf_executable: str = "verapdf"
+    verapdf_flavour: str = "ua1"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-5.6"
+    openai_base_url: str = "https://api.openai.com/v1"
+
     log_level: str = "INFO"
     json_logs: bool = False
 
 
 def configure_logging(level: str, json_logs: bool = False) -> None:
-    # JSON formatting can be added later without coupling it to core logic.
     logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO))

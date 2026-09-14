@@ -1,69 +1,120 @@
-# PDF Remediation Research Foundation
+# PDF Remediation – real Tagged-PDF pipeline
 
-A modular Python 3.12 research platform for PDF accessibility remediation.
+This project now contains two levels:
 
-The project keeps stable intermediate representations and pipeline orchestration
-separate from concrete extraction, AI, remediation, validation and storage
-adapters.
+1. a lightweight PyMuPDF research baseline;
+2. a real local accessibility pipeline using OpenDataLoader auto-tagging and veraPDF validation.
 
-## Current real capability
-
-The repository includes a real `PyMuPDFExtractor` that maps PDF text/image blocks
-into the canonical `DocumentIR`.
-
-The remaining semantic-analysis, remediation, validation and report adapters are
-deterministic research mocks. They are intentionally not presented as PDF/UA
-conformance tooling.
-
-## Architecture
+## What `accessibility_full` does
 
 ```text
-PDF upload
-  -> recipe
-  -> extractor
-  -> DocumentIR
-  -> semantic analysis
-  -> SemanticDocumentIR
-  -> remediation candidate
-  -> validation
-  -> finalization/report
-  -> artifacts
+source.pdf
+  -> OpenDataLoader JSON extraction
+  -> canonical DocumentIR
+  -> semantic role mapping
+  -> OpenDataLoader auto-tagging
+  -> candidate_pdf.pdf (real Tagged PDF)
+  -> veraPDF PDF/UA-1 machine validation
+  -> final_pdf.pdf
+  -> report.json
 ```
 
-Adapters are resolved through `(stage_type, adapter_name)` pairs, so a recipe can
-switch from `mock` extraction to `pymupdf` without changing the pipeline core.
+OpenDataLoader's Tagged-PDF output is a real tagged PDF. It is **not automatically
+claimed to be PDF/UA compliant**. The separate veraPDF artifact records whether
+the machine-verifiable PDF/UA checks pass.
 
-## Quick start
+## Requirements
+
+- Python 3.12+
+- Java 11+ for OpenDataLoader
+- veraPDF CLI for PDF/UA validation
+
+Check Java:
+
+```bash
+java -version
+```
+
+On macOS with Homebrew:
+
+```bash
+brew install --cask temurin
+```
+
+Install project with the real OpenDataLoader adapter:
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
-
-alembic upgrade head
-pytest
-ruff check .
-mypy src
-
-uvicorn pdf_remediation.api.main:app --reload
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev,opendataloader]'
 ```
 
-Run a real extraction baseline:
+Initialize the database:
 
 ```bash
-curl -F 'file=@sample.pdf'   -F 'recipe_name=pymupdf_baseline'   http://localhost:8000/jobs
+alembic upgrade head
 ```
 
-## Recipes
+Start:
 
-- `mock_remediation`: complete deterministic mock flow.
-- `pymupdf_baseline`: real PyMuPDF extraction + mock semantic analysis.
+```bash
+python -m uvicorn pdf_remediation.api.main:app --reload
+```
 
-## Next research increments
+Open Swagger:
 
-1. OpenDataLoader adapter emitting the same `DocumentIR`.
-2. Real structure-analysis adapter.
-3. Reading-order, table, figure and alt-text analyzers.
-4. Real tagged-PDF remediation writer.
-5. veraPDF validation adapter.
-6. Human-in-the-loop corrections and experiment metrics.
+```text
+http://127.0.0.1:8000/docs
+```
+
+## Generate a real tagged PDF
+
+```bash
+curl -F 'file=@sample.pdf'   -F 'recipe_name=accessibility_full'   http://127.0.0.1:8000/jobs
+```
+
+Then query:
+
+```bash
+curl http://127.0.0.1:8000/jobs/<JOB_ID>/artifacts
+```
+
+Expected artifacts:
+
+```text
+source_pdf.pdf
+document_ir.json
+semantic_ir.json
+candidate_pdf.pdf
+validation.json
+final_pdf.pdf
+report.json
+```
+
+`candidate_pdf.pdf` and `final_pdf.pdf` are the real auto-tagged PDF output.
+
+## Optional AI structure recipe
+
+Set:
+
+```bash
+export PDFR_OPENAI_API_KEY='...'
+```
+
+Then `accessibility_ai` becomes available through the registered
+`semantic_analysis/openai` adapter. It uses the Responses API with a strict
+JSON-schema structure classification. The OpenDataLoader writer remains
+responsible for writing the actual PDF tags.
+
+## HITL / experiments
+
+The API also exposes review-correction and experiment metric endpoints. These are
+an application-layer foundation. For multi-process production deployment, move
+this state from the current in-memory service to the SQLAlchemy repository.
+
+## Important limitation
+
+veraPDF performs machine-verifiable conformance checks. Human accessibility
+review remains necessary for semantic correctness such as meaningful alt text,
+reading order quality and heading intent.
