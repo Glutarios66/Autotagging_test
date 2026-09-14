@@ -1,6 +1,6 @@
 name: accessibility_full
-description: Preflight, real tagging, targeted CIDSet normalization, postflight PDF/UA-1 validation and conditional finalization.
-version: "2"
+description: Preflight, tagging, PDF/UA normalization, postflight validation, conditional finalization.
+version: "3"
 steps:
   - id: preflight
     type: validation
@@ -23,9 +23,9 @@ steps:
     adapter: opendataloader
     needs: [analyze]
 
-  - id: normalize_fonts
+  - id: normalize_pdfua
     type: normalization
-    adapter: cidset
+    adapter: pdfua
     needs: [remediate]
     config:
       input: candidate_pdf
@@ -35,7 +35,7 @@ steps:
   - id: postflight
     type: validation
     adapter: verapdf
-    needs: [preflight, normalize_fonts]
+    needs: [preflight, normalize_pdfua]
     config:
       input: normalized_pdf
       output: validation

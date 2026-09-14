@@ -1,38 +1,59 @@
-# PDF Remediation – Tagged-PDF + PDF/UA validation pipeline
+# PDF Remediation – PDF/UA normalization pipeline v0.4
 
-The real recipe now uses a before/after validation flow:
+The default `accessibility_full` recipe now performs:
 
 ```text
 source.pdf
   -> veraPDF PRE-FLIGHT
-  -> OpenDataLoader extraction + semantic mapping
+  -> OpenDataLoader extraction / semantic mapping
   -> OpenDataLoader Tagged-PDF generation
-  -> CIDSet font normalization
+  -> PDF/UA normalizer
+       - remove inconsistent optional CIDSet entries
+       - embed missing matching TrueType fonts when legally embeddable
+       - write XMP pdfuaid:part = 1
   -> veraPDF POST-FLIGHT
   -> report.json
-  -> final_pdf.pdf only if postflight passes
+  -> final_pdf.pdf only if postflight valid == true
 ```
 
-## Why CIDSet normalization exists
+## Font repair policy
 
-Some source PDFs contain embedded CID fonts with an inconsistent `/CIDSet`.
-PDF/UA-1 checks the correctness of a CIDSet when one is present. The targeted
-normalizer removes the inconsistent optional CIDSet entry from CIDFontType0/
-CIDFontType2 font descriptors and leaves the embedded font program, ToUnicode,
-page content, tags and MCIDs untouched. veraPDF is always run again afterwards.
+The normalizer does **not** silently replace fonts. For an unembedded `/TrueType`
+font such as `ArialMT`, it searches local macOS font directories for a `.ttf`
+whose PostScript name exactly matches the PDF font name (subset prefixes are
+ignored). It then checks the OpenType `OS/2.fsType` flags. Restricted-license or
+bitmap-only fonts are not embedded.
 
-This is intentionally narrow: it does not claim to repair arbitrary font
-embedding problems.
+Default macOS search directories:
+
+```text
+/System/Library/Fonts
+/System/Library/Fonts/Supplemental
+/Library/Fonts
+~/Library/Fonts
+```
+
+Additional directories can be supplied before starting the API:
+
+```bash
+export PDFR_FONT_DIRS="/path/to/company/fonts:/another/font/dir"
+```
+
+If no safe exact match exists, the run remains invalid and
+`normalization_report.json` explains why.
+
+## PDF/UA metadata
+
+The normalizer writes the PDF/UA-1 identification property:
+
+```text
+pdfuaid:part = 1
+```
+
+This is only a conformance *claim*. The project still requires the following
+veraPDF postflight to pass before `final_pdf.pdf` is emitted.
 
 ## Install
-
-Requirements:
-
-- Python 3.12+
-- Java 11+ for OpenDataLoader
-- veraPDF CLI
-
-macOS:
 
 ```bash
 brew install python@3.12
@@ -43,7 +64,11 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[dev,opendataloader]'
+
 alembic upgrade head
+pytest
+ruff check .
+mypy src
 ```
 
 Start:
@@ -52,32 +77,18 @@ Start:
 python -m uvicorn pdf_remediation.api.main:app --reload
 ```
 
-Run a real remediation:
+Submit:
 
 ```bash
 curl -F 'file=@sample.pdf'   -F 'recipe_name=accessibility_full'   http://127.0.0.1:8000/jobs
 ```
 
-## Expected artifacts
+The authoritative machine result is `validation.json`.
 
-Always:
-
-```text
-source_pdf.pdf
-preflight_validation.json
-document_ir.json
-semantic_ir.json
-candidate_pdf.pdf
-normalized_pdf.pdf
-normalization_report.json
-validation.json
-report.json
+```json
+{
+  "valid": true
+}
 ```
 
-Only when postflight veraPDF passes:
-
-```text
-final_pdf.pdf
-```
-
-`report.json` separates fixed, remaining and newly introduced rule codes.
+Only then is `final_pdf.pdf` generated.

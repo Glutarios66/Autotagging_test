@@ -1,16 +1,17 @@
 # Project status – v0.4
 
 Implemented:
-- veraPDF preflight on the original PDF
-- real OpenDataLoader tagging
-- targeted CIDSet font normalization using pikepdf/qpdf
-- veraPDF postflight on the normalized Tagged PDF
-- before/after validation comparison
-- final PDF emitted only after successful postflight validation
-- normalization report with affected fonts/pages
-- existing PyMuPDF/OpenDataLoader/OpenAI/HITL/experiment foundations retained
+- veraPDF preflight on source PDF
+- OpenDataLoader real tagged-PDF generation
+- targeted CIDSet cleanup
+- exact-match TrueType font embedding via FontFile2
+- OpenType OS/2 fsType embedding-rights guard
+- macOS font discovery + PDFR_FONT_DIRS override
+- PDF/UA-1 XMP identification (`pdfuaid:part = 1`)
+- veraPDF postflight
+- before/after report
+- final PDF only on successful postflight
 
-The CIDSet repair is intentionally conservative. It removes inconsistent
-optional CIDSet entries from embedded CID font descriptors; it does not
-re-encode text or rebuild font programs. Any other remaining font or PDF/UA
-issue stays visible in validation.json/report.json.
+The font repair intentionally supports missing embedded TrueType fonts with an
+existing FontDescriptor and an exact locally available font match. It does not
+substitute fonts or attempt generic Type1/CFF repair.

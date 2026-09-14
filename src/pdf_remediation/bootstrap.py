@@ -19,6 +19,7 @@ from pdf_remediation.adapters import (
     OpenDataLoaderSemanticAnalyzer,
     OpenDataLoaderTagger,
     PassThroughFinalizer,
+    PDFUAConformanceNormalizer,
     PyMuPDFExtractor,
     VeraPDFValidator,
 )
@@ -121,6 +122,12 @@ def build_container(settings: Settings | None = None) -> Container:
         "normalization",
         "cidset",
         NormalizeComponent(CIDSetFontNormalizer()),
+    )
+
+    adapters.register(
+        "normalization",
+        "pdfua",
+        NormalizeComponent(PDFUAConformanceNormalizer()),
     )
 
     # Validation/finalization/reporting
