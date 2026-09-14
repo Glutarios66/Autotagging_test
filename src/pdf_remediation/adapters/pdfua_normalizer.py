@@ -68,7 +68,23 @@ class PDFUAConformanceNormalizer:
         visited: set[tuple[int, int] | int] = set()
 
         with pikepdf.Pdf.open(source) as pdf:
+            tabs_repairs: list[dict[str, Any]] = []
+
             for page_number, page in enumerate(pdf.pages, start=1):
+                annots = page.obj.get("/Annots")
+                if annots is not None and len(annots) > 0:
+                    current_tabs = page.obj.get("/Tabs")
+                    if current_tabs != pikepdf.Name("/S"):
+                        page.obj["/Tabs"] = pikepdf.Name("/S")
+                        tabs_repairs.append(
+                            {
+                                "page": page_number,
+                                "previous_tabs": str(current_tabs) if current_tabs is not None else None,
+                                "new_tabs": "/S",
+                                "annotation_count": len(annots),
+                            }
+                        )
+
                 resources = page.obj.get("/Resources")
                 if isinstance(resources, pikepdf.Dictionary):
                     self._walk_resources(
@@ -95,7 +111,7 @@ class PDFUAConformanceNormalizer:
 
         report: dict[str, Any] = {
             "normalizer": self.adapter_name,
-            "changed": bool(cidset_repairs or embedded_fonts) or True,
+            "changed": bool(cidset_repairs or embedded_fonts or tabs_repairs) or True,
             "pdfua_identification": {
                 "pdfuaid:part": PDFUA_PART,
                 "written": True,
@@ -103,6 +119,10 @@ class PDFUAConformanceNormalizer:
             "cidset": {
                 "removed_entries": len(cidset_repairs),
                 "repairs": cidset_repairs,
+            },
+            "page_tabs": {
+                "repaired_count": len(tabs_repairs),
+                "repairs": tabs_repairs,
             },
             "font_embedding": {
                 "embedded_count": len(embedded_fonts),

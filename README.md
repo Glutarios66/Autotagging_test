@@ -11,6 +11,7 @@ source.pdf
        - remove inconsistent optional CIDSet entries
        - embed missing matching TrueType fonts when legally embeddable
        - write XMP pdfuaid:part = 1
+       - set /Tabs /S on pages containing annotations
   -> veraPDF POST-FLIGHT
   -> report.json
   -> final_pdf.pdf only if postflight valid == true

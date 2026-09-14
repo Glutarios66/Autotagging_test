@@ -15,3 +15,5 @@ Implemented:
 The font repair intentionally supports missing embedded TrueType fonts with an
 existing FontDescriptor and an exact locally available font match. It does not
 substitute fonts or attempt generic Type1/CFF repair.
+
+- `/Tabs /S` repair for pages with annotations
